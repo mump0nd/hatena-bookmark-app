@@ -7,9 +7,8 @@
 - はてなブックマークAPIからホットエントリーを取得
 - APIアクセスに失敗した場合はRSSフィードからデータを取得（フォールバック機能）
 - 指定したブックマーク数（threshold）以上の記事をフィルタリング
-- 記事の冒頭3段落を取得し、`<description>`に追加
+- はてなブックマークの説明文を`<description>`に追加
 - RSS 2.0形式でフィードを生成
-- `<content:encoded>`にHTMLを含めたリッチなプレビューを追加
 - 10分間のキャッシュ機能により、サーバーの負荷を軽減
 
 ## インストール
@@ -73,7 +72,7 @@ http://localhost:5001/hotentry/all/feed?threshold=200
    - **Branch**: main
    - **Runtime**: Python 3
    - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `gunicorn app:app`
+   - **Start Command**: `gunicorn app:app --timeout 120 --workers 4`
 
 2. 「Create Web Service」ボタンをクリックします
 
@@ -121,12 +120,7 @@ https://hatena-bookmark-app.onrender.com/hotentry/all/feed?threshold=200
             <title>「新しいAI技術が発表される」</title>
             <link>https://example.com/ai-news</link>
             <guid isPermaLink="true">https://example.com/ai-news</guid>
-            <description>AI技術の進化が止まらない。最新の発表によると、新しいニューラルネットワークの手法が...専門家によると、この技術は...</description>
-            <content:encoded><![CDATA[
-                <p>AI技術の進化が止まらない。</p>
-                <p>最新の発表によると、新しいニューラルネットワークの手法が...</p>
-                <p>専門家によると、この技術は...</p>
-            ]]></content:encoded>
+            <description>AI技術の進化が止まらない。最新の発表によると、新しいニューラルネットワークの手法が...</description>
             <pubDate>Thu, 07 Mar 2024 14:50:00 GMT</pubDate>
         </item>
     </channel>
