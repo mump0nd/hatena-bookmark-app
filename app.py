@@ -172,32 +172,47 @@ def generate_rss_feed(entries, threshold):
 
 def get_hotentry_feed_internal(threshold=100, use_cache=True):
     """ホットエントリーのRSSフィードを生成する内部関数"""
-    if use_cache:
-        with store_lock:
-            if global_store['latest_entries'] is not None:
-                entries = global_store['latest_entries']
-            else:
-                entries = fetch_hatena_hotentries()
-                global_store['latest_entries'] = entries
-                global_store['last_update'] = datetime.now()
-    else:
-        entries = fetch_hatena_hotentries()
-    
-    # しきい値以上のブックマーク数を持つエントリーをフィルタリング
-    filtered_entries = []
-    
-    for entry in entries:
-        # ブックマーク数を取得
-        bookmark_count = entry.get('count', 0)
+    try:
+        if use_cache:
+            with store_lock:
+                if global_store['latest_entries'] is not None:
+                    entries = global_store['latest_entries']
+                else:
+                    entries = fetch_hatena_hotentries()
+                    global_store['latest_entries'] = entries
+                    global_store['last_update'] = datetime.now()
+        else:
+            entries = fetch_hatena_hotentries()
         
-        if bookmark_count >= threshold:
-            filtered_entries.append(entry)
-    
-    # RSSフィードを生成
-    rss_feed = generate_rss_feed(filtered_entries, threshold)
-    
-    # XMLレスポンスを返す
-    return Response(rss_feed, mimetype='application/xml')
+        # しきい値以上のブックマーク数を持つエントリーをフィルタリング
+        filtered_entries = []
+        
+        for entry in entries:
+            # ブックマーク数を取得
+            bookmark_count = entry.get('count', 0)
+            
+            if bookmark_count >= threshold:
+                filtered_entries.append(entry)
+        
+        # RSSフィードを生成
+        rss_feed = generate_rss_feed(filtered_entries, threshold)
+        
+        # XMLレスポンスを返す
+        return Response(rss_feed, mimetype='application/xml')
+    except Exception as e:
+        app.logger.error(f"フィード生成中にエラーが発生しました: {str(e)}")
+        error_xml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>エラー</title>
+    <description>フィードの生成中にエラーが発生しました</description>
+    <item>
+      <title>エラーが発生しました</title>
+      <description>{html.escape(str(e))}</description>
+    </item>
+  </channel>
+</rss>"""
+        return Response(error_xml, mimetype='application/xml', status=500)
 
 @app.route('/hotentry/all/feed')
 def get_hotentry_feed():
@@ -225,17 +240,23 @@ def get_hotentry_feed_nocache():
 
 @app.route('/debug/ifttt')
 def debug_ifttt():
-    """IFTTTデバッグ用のエンドポイント"""
-    return """
+    """IFTTTデバッグ用のエンドポイント（簡素化版）"""
+    # サンプルデータを用意（APIリクエストなし）
+    threshold = 200
+    sample_entries = []
+    
+    # スタティックなHTMLを返す
+    return f"""
     <!DOCTYPE html>
     <html>
     <head>
         <title>IFTTT RSSトリガーデバッグ</title>
         <meta charset="utf-8">
         <style>
-            body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-            pre { background: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto; }
-            .item { border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 5px; }
+            body {{ font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }}
+            pre {{ background: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto; }}
+            .item {{ border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 5px; }}
+            .important {{ color: #d9534f; font-weight: bold; }}
         </style>
     </head>
     <body>
@@ -245,7 +266,7 @@ def debug_ifttt():
         <h2>IFTTTでの設定方法</h2>
         <ol>
             <li>IFTTTで「RSS Feed」トリガーを選択</li>
-            <li>以下のURLを入力: <code>""" + request.host_url + """hotentry/all/feed/nocache?threshold=200</code></li>
+            <li>以下のURLを入力: <code>{request.host_url}hotentry/all/feed/nocache?threshold=200</code></li>
             <li>「New feed item」を選択</li>
             <li>任意のアクションを設定（例: Lineに通知）</li>
         </ol>
@@ -258,41 +279,14 @@ def debug_ifttt():
             <li>IFTTTの「Check now」ボタンを押して手動で確認</li>
         </ol>
         
-        <h2>現在の最新エントリー</h2>
-        <div id="entries">読み込み中...</div>
+        <h2>RSSフィードの確認方法</h2>
+        <p>以下のリンクで直接RSSフィードを確認できます：</p>
+        <ul>
+            <li><a href="/hotentry/all/feed/nocache?threshold=100" target="_blank">100ブックマーク以上</a></li>
+            <li><a href="/hotentry/all/feed/nocache?threshold=200" target="_blank">200ブックマーク以上</a></li>
+        </ul>
         
-        <script>
-            fetch('/hotentry/all/feed/nocache?threshold=200')
-                .then(response => response.text())
-                .then(text => {
-                    const parser = new DOMParser();
-                    const xmlDoc = parser.parseFromString(text, "text/xml");
-                    const items = xmlDoc.getElementsByTagName("item");
-                    let html = '';
-                    
-                    if (items.length === 0) {
-                        html = '<p>エントリーがありません。しきい値を下げてみてください。</p>';
-                    } else {
-                        for (let i = 0; i < items.length; i++) {
-                            const title = items[i].getElementsByTagName("title")[0].textContent;
-                            const link = items[i].getElementsByTagName("link")[0].textContent;
-                            const guid = items[i].getElementsByTagName("guid")[0].textContent;
-                            const pubDate = items[i].getElementsByTagName("pubDate")[0].textContent;
-                            
-                            html += `<div class="item">
-                                <h3><a href="${link}" target="_blank">${title}</a></h3>
-                                <p>GUID: ${guid}</p>
-                                <p>公開日: ${pubDate}</p>
-                            </div>`;
-                        }
-                    }
-                    
-                    document.getElementById('entries').innerHTML = html;
-                })
-                .catch(error => {
-                    document.getElementById('entries').innerHTML = `<p>エラーが発生しました: ${error}</p>`;
-                });
-        </script>
+        <p class="important">注意: IFTTTでは「New feed item」トリガーを使用し、頻繁に更新されるアイテムを検出するためには、アプレットを一度無効にしてから再度有効にすると良いことがあります。</p>
     </body>
     </html>
     """
@@ -391,6 +385,11 @@ def index():
     </html>
     """
 
+@app.route('/health')
+def health_check():
+    """ヘルスチェックエンドポイント"""
+    return "OK", 200
+
 def init_scheduler():
     """スケジューラーを初期化する"""
     if not scheduler.running:
@@ -405,10 +404,16 @@ def init_scheduler():
         app.logger.info("スケジューラーを開始しました")
 
 # 初期データを取得
-update_global_store()
+try:
+    update_global_store()
+except Exception as e:
+    app.logger.error(f"初期データ取得に失敗しました: {str(e)}")
 
 # スケジューラーを初期化
-init_scheduler()
+try:
+    init_scheduler()
+except Exception as e:
+    app.logger.error(f"スケジューラーの初期化に失敗しました: {str(e)}")
 
 # PythonAnywhere用のWSGIアプリケーション
 application = app
