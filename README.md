@@ -9,7 +9,7 @@
 - 指定したブックマーク数（threshold）以上の記事をフィルタリング
 - はてなブックマークの説明文を`<description>`に追加
 - RSS 2.0形式でフィードを生成（IFTTTのRSSトリガーに対応）
-- 10分間のキャッシュ機能により、サーバーの負荷を軽減
+- キャッシュありとキャッシュなしの2種類のエンドポイントを提供
 
 ## IFTTTとの連携
 
@@ -18,11 +18,12 @@
 1. IFTTTで新しいAppletを作成
 2. 「If This」でトリガーとして「RSS Feed」を選択
 3. 「New feed item」を選択
-4. Feed URLに以下のようなURLを設定：
+4. Feed URLに以下のURLを設定（キャッシュなしエンドポイント）：
    ```
-   https://hatena-bookmark-app.onrender.com/hotentry/all/feed?threshold=200
+   https://hatena-bookmark-app.onrender.com/hotentry/all/feed/nocache?threshold=200
    ```
    - `threshold`パラメータで指定したブックマーク数以上の記事のみを取得
+   - `/nocache`エンドポイントを使用することで、常に最新のデータを取得
 5. 「Then That」で任意のアクションを設定
    - Slackに通知
    - LINEに通知
@@ -31,10 +32,9 @@
 
 ### 注意点
 
-- RSSフィードは10分ごとに更新されます（TTL: 10分）
-- IFTTTは通常15-30分間隔でフィードをチェックします
-- 新しい記事は`pubDate`タグの日時を基準に判定されます
-- キャッシュの影響を避けるため、IFTTTの更新間隔は10分以上を推奨
+- IFTTTは通常15-30分間隔でフィードをチェック
+- 新しい記事は`pubDate`タグの日時を基準に判定
+- キャッシュの影響を避けるため、必ず`/nocache`エンドポイントを使用
 
 ## インストール
 
@@ -71,7 +71,11 @@ python app.py
 3. 以下のURLパターンでRSSフィードを取得できます：
 
 ```
+# 通常のエンドポイント（キャッシュあり）
 http://localhost:5001/hotentry/all/feed?threshold=200
+
+# IFTTTトリガー用エンドポイント（キャッシュなし）
+http://localhost:5001/hotentry/all/feed/nocache?threshold=200
 ```
 
 `threshold`パラメータに数値を指定することで、そのブックマーク数以上の記事のみをフィルタリングできます。
@@ -110,7 +114,11 @@ https://hatena-bookmark-app.onrender.com
 
 RSSフィードは以下のURLで取得できます：
 ```
+# 通常のエンドポイント（キャッシュあり）
 https://hatena-bookmark-app.onrender.com/hotentry/all/feed?threshold=200
+
+# IFTTTトリガー用エンドポイント（キャッシュなし）
+https://hatena-bookmark-app.onrender.com/hotentry/all/feed/nocache?threshold=200
 ```
 
 ## Renderの特徴
@@ -124,7 +132,16 @@ https://hatena-bookmark-app.onrender.com/hotentry/all/feed?threshold=200
 
 ### RSSフィードの取得
 
-- `GET /hotentry/all/feed?threshold=XX`
+1. **通常のエンドポイント（キャッシュあり）**
+   - `GET /hotentry/all/feed?threshold=XX`
+   - 10分間のキャッシュを使用
+   - ブラウザでの閲覧に最適
+
+2. **IFTTTトリガー用エンドポイント（キャッシュなし）**
+   - `GET /hotentry/all/feed/nocache?threshold=XX`
+   - キャッシュを使用せず、常に最新データを取得
+   - IFTTTのRSSトリガーに最適
+
 - `threshold` に設定したブックマーク数以上のホットエントリーをRSSで返します
 - デフォルト値は100です
 
@@ -170,14 +187,13 @@ https://hatena-bookmark-app.onrender.com/hotentry/all/feed?threshold=200
 ### IFTTTのトラブルシューティング
 
 1. **トリガーが発動しない**
+   - `/nocache`エンドポイントを使用しているか確認
    - RSSフィードのURLが正しいか確認
-   - `pubDate`が正しいRFC822形式になっているか確認
    - IFTTTの更新間隔（15-30分）を考慮
-   - キャッシュの影響を避けるため、更新間隔を10分以上に設定
 
 2. **重複した通知**
    - `guid`タグが正しく設定されているか確認
-   - キャッシュの有効期限（10分）を確認
+   - IFTTTのAppletの設定を確認
 
 ## ライセンス
 

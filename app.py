@@ -171,17 +171,8 @@ def generate_rss_feed(entries, threshold):
     
     return xml
 
-@app.route('/hotentry/all/feed')
-@with_cache(600)  # 10分間キャッシュ
-def get_hotentry_feed():
-    """ホットエントリーのRSSフィードを返す"""
-    # クエリパラメータからしきい値を取得（デフォルトは100）
-    threshold = request.args.get('threshold', '100')
-    try:
-        threshold = int(threshold)
-    except ValueError:
-        threshold = 100
-    
+def get_hotentry_feed_internal(threshold=100):
+    """ホットエントリーのRSSフィードを生成する内部関数"""
     # はてなブックマークのホットエントリーを取得
     entries = fetch_hatena_hotentries()
     
@@ -208,6 +199,31 @@ def get_hotentry_feed():
     
     # XMLレスポンスを返す
     return Response(rss_feed, mimetype='application/xml')
+
+@app.route('/hotentry/all/feed')
+@with_cache(600)  # 10分間キャッシュ
+def get_hotentry_feed():
+    """ホットエントリーのRSSフィードを返す（キャッシュあり）"""
+    # クエリパラメータからしきい値を取得（デフォルトは100）
+    threshold = request.args.get('threshold', '100')
+    try:
+        threshold = int(threshold)
+    except ValueError:
+        threshold = 100
+    
+    return get_hotentry_feed_internal(threshold)
+
+@app.route('/hotentry/all/feed/nocache')
+def get_hotentry_feed_nocache():
+    """ホットエントリーのRSSフィードを返す（キャッシュなし、IFTTT用）"""
+    # クエリパラメータからしきい値を取得（デフォルトは100）
+    threshold = request.args.get('threshold', '100')
+    try:
+        threshold = int(threshold)
+    except ValueError:
+        threshold = 100
+    
+    return get_hotentry_feed_internal(threshold)
 
 @app.route('/')
 def index():
@@ -258,6 +274,12 @@ def index():
         
         <p><code>threshold</code>パラメータに数値を指定することで、そのブックマーク数以上の記事のみをフィルタリングできます。</p>
         
+        <h2>IFTTT用エンドポイント</h2>
+        <p>IFTTTのRSSトリガー用に、キャッシュなしのエンドポイントを提供しています：</p>
+        <div class="example">
+            <code>{request.host_url}hotentry/all/feed/nocache?threshold=200</code>
+        </div>
+        
         <h2>例</h2>
         <ul>
             <li><a href="{url_for('get_hotentry_feed', threshold=100)}" target="_blank">100ブックマーク以上の記事</a></li>
@@ -268,8 +290,8 @@ def index():
         <h2>特徴</h2>
         <ul>
             <li>はてなブックマークの説明文を<code>&lt;description&gt;</code>に含めます</li>
-            <li>10分間のキャッシュ機能により、サーバーの負荷を軽減します</li>
             <li>IFTTTのRSSトリガーに対応したフォーマット</li>
+            <li>キャッシュありとキャッシュなしの2種類のエンドポイントを提供</li>
         </ul>
     </body>
     </html>
