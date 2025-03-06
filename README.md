@@ -1,6 +1,6 @@
 # はてなブックマーク ホットエントリー RSS ジェネレーター
 
-このアプリケーションは、はてなブックマークのホットエントリーから指定したブックマーク数以上の記事を取得し、RSS形式で提供するFlaskアプリケーションです。
+このアプリケーションは、はてなブックマークのホットエントリーから指定したブックマーク数以上の記事を取得し、RSS形式で提供するFlaskアプリケーションです。IFTTTのRSSトリガーと連携して、新しい人気記事の通知を自動化できます。
 
 ## 機能
 
@@ -8,8 +8,33 @@
 - APIアクセスに失敗した場合はRSSフィードからデータを取得（フォールバック機能）
 - 指定したブックマーク数（threshold）以上の記事をフィルタリング
 - はてなブックマークの説明文を`<description>`に追加
-- RSS 2.0形式でフィードを生成
+- RSS 2.0形式でフィードを生成（IFTTTのRSSトリガーに対応）
 - 10分間のキャッシュ機能により、サーバーの負荷を軽減
+
+## IFTTTとの連携
+
+### RSSトリガーの設定方法
+
+1. IFTTTで新しいAppletを作成
+2. 「If This」でトリガーとして「RSS Feed」を選択
+3. 「New feed item」を選択
+4. Feed URLに以下のようなURLを設定：
+   ```
+   https://hatena-bookmark-app.onrender.com/hotentry/all/feed?threshold=200
+   ```
+   - `threshold`パラメータで指定したブックマーク数以上の記事のみを取得
+5. 「Then That」で任意のアクションを設定
+   - Slackに通知
+   - LINEに通知
+   - Eメールで送信
+   - など
+
+### 注意点
+
+- RSSフィードは10分ごとに更新されます（TTL: 10分）
+- IFTTTは通常15-30分間隔でフィードをチェックします
+- 新しい記事は`pubDate`タグの日時を基準に判定されます
+- キャッシュの影響を避けるため、IFTTTの更新間隔は10分以上を推奨
 
 ## インストール
 
@@ -115,6 +140,7 @@ https://hatena-bookmark-app.onrender.com/hotentry/all/feed?threshold=200
         <language>ja</language>
         <lastBuildDate>Thu, 07 Mar 2024 15:00:00 GMT</lastBuildDate>
         <atom:link href="https://example.com/hotentry/all/feed?threshold=200" rel="self" type="application/rss+xml"/>
+        <ttl>10</ttl>
 
         <item>
             <title>「新しいAI技術が発表される」</title>
@@ -140,6 +166,18 @@ https://hatena-bookmark-app.onrender.com/hotentry/all/feed?threshold=200
 2. **Application Error**: アプリケーションの起動に失敗した場合に発生します。`Start Command`が正しく設定されているか確認してください。
 
 3. **Build Failed**: ビルドプロセスに失敗した場合に発生します。`Build Command`が正しく設定されているか確認してください。
+
+### IFTTTのトラブルシューティング
+
+1. **トリガーが発動しない**
+   - RSSフィードのURLが正しいか確認
+   - `pubDate`が正しいRFC822形式になっているか確認
+   - IFTTTの更新間隔（15-30分）を考慮
+   - キャッシュの影響を避けるため、更新間隔を10分以上に設定
+
+2. **重複した通知**
+   - `guid`タグが正しく設定されているか確認
+   - キャッシュの有効期限（10分）を確認
 
 ## ライセンス
 
