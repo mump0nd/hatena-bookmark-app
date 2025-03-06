@@ -11,12 +11,21 @@ from functools import wraps
 import threading
 import html
 import os
+import random
 
 app = Flask(__name__)
 
 # キャッシュを保持するための辞書
 cache = {}
 cache_lock = threading.Lock()
+
+# User-Agentのリスト
+USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15',
+]
 
 def get_cache_key(threshold):
     """キャッシュキーを生成する"""
@@ -105,42 +114,75 @@ def fetch_hatena_hotentries_from_rss():
     
     return entries
 
-def get_article_first_paragraphs(url, max_paragraphs=3):
+def get_article_first_paragraphs(url, max_paragraphs=3, max_retries=3):
     """記事のURLから最初の3つの段落を取得する"""
-    try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        
-        # html.parserを使用してBeautifulSoupオブジェクトを作成
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # 記事の本文から最初の3つの段落を取得
-        paragraphs = soup.find_all('p')
-        
-        # テキストが空でない段落のみを抽出
-        valid_paragraphs = []
-        for p in paragraphs:
-            text = p.get_text().strip()
-            if text and len(text) > 20:  # 短すぎる段落は除外
-                valid_paragraphs.append(text)
-                if len(valid_paragraphs) >= max_paragraphs:
-                    break
-        
-        if valid_paragraphs:
-            return "\n\n".join(valid_paragraphs)
-        else:
-            # 段落が見つからない場合はメタディスクリプションを試す
-            meta_desc = soup.find('meta', attrs={'name': 'description'}) or soup.find('meta', attrs={'property': 'og:description'})
-            if meta_desc and meta_desc.get('content'):
-                return meta_desc.get('content')
+    for attempt in range(max_retries):
+        try:
+            # ランダムなUser-Agentを選択
+            headers = {
+                'User-Agent': random.choice(USER_AGENTS),
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+                'Cache-Control': 'max-age=0',
+            }
+
+            # リクエスト間隔を設定（1-3秒のランダムな待機）
+            if attempt > 0:
+                time.sleep(random.uniform(1, 3))
+
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
             
+            # html.parserを使用してBeautifulSoupオブジェクトを作成
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # 記事の本文から最初の3つの段落を取得
+            paragraphs = soup.find_all('p')
+            
+            # テキストが空でない段落のみを抽出
+            valid_paragraphs = []
+            for p in paragraphs:
+                text = p.get_text().strip()
+                if text and len(text) > 20:  # 短すぎる段落は除外
+                    valid_paragraphs.append(text)
+                    if len(valid_paragraphs) >= max_paragraphs:
+                        break
+            
+            if valid_paragraphs:
+                return "\n\n".join(valid_paragraphs)
+            else:
+                # 段落が見つからない場合はメタディスクリプションを試す
+                meta_desc = soup.find('meta', attrs={'name': 'description'}) or soup.find('meta', attrs={'property': 'og:description'})
+                if meta_desc and meta_desc.get('content'):
+                    return meta_desc.get('content')
+                
+                return "記事の概要を取得できませんでした"
+
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 429:  # Too Many Requests
+                if attempt < max_retries - 1:
+                    app.logger.warning(f"レート制限に引っかかりました。{attempt + 1}回目のリトライを実行します...")
+                    time.sleep(random.uniform(5, 10))  # より長い待機時間
+                    continue
+                else:
+                    app.logger.error(f"レート制限により記事の取得に失敗しました: {str(e)}")
+                    return "レート制限により記事の概要を取得できませんでした"
+            else:
+                app.logger.error(f"記事の取得中にHTTPエラーが発生しました: {str(e)}")
+                return "記事の概要を取得できませんでした"
+        except Exception as e:
+            app.logger.error(f"記事の取得中にエラーが発生しました: {str(e)}")
             return "記事の概要を取得できませんでした"
-    except Exception as e:
-        app.logger.error(f"記事の取得中にエラーが発生しました: {str(e)}")
-        return "記事の概要を取得できませんでした"
+
+    return "記事の概要を取得できませんでした"
 
 def generate_rss_feed(entries, threshold):
     """エントリーからRSSフィードを生成する（文字列操作でXMLを生成）"""
