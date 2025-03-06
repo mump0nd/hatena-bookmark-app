@@ -12,12 +12,20 @@ import html
 import os
 import random
 import email.utils
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 
 app = Flask(__name__)
 
-# キャッシュを保持するための辞書
-cache = {}
-cache_lock = threading.Lock()
+# グローバルなデータストア
+global_store = {
+    'latest_entries': None,
+    'last_update': None
+}
+store_lock = threading.Lock()
+
+# スケジューラーの初期化
+scheduler = BackgroundScheduler()
 
 # User-Agentのリスト
 USER_AGENTS = [
@@ -33,38 +41,6 @@ session.headers.update({
     'Accept-Encoding': 'gzip, deflate, br',
     'Connection': 'keep-alive',
 })
-
-def get_cache_key(threshold):
-    """キャッシュキーを生成する"""
-    return f"threshold_{threshold}"
-
-def with_cache(expiration=600):  # デフォルトの有効期限は10分（600秒）
-    """キャッシュ機能を提供するデコレータ"""
-    def decorator(f):
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            threshold = kwargs.get('threshold', request.args.get('threshold', '100'))
-            cache_key = get_cache_key(threshold)
-            
-            with cache_lock:
-                # キャッシュが存在し、有効期限内であれば、キャッシュから返す
-                if cache_key in cache and cache[cache_key]['expires'] > time.time():
-                    app.logger.info(f"キャッシュからデータを返します (threshold={threshold})")
-                    return cache[cache_key]['data']
-            
-            # キャッシュがない場合や期限切れの場合は、元の関数を実行
-            result = f(*args, **kwargs)
-            
-            # 結果をキャッシュに保存
-            with cache_lock:
-                cache[cache_key] = {
-                    'data': result,
-                    'expires': time.time() + expiration
-                }
-            
-            return result
-        return decorated_function
-    return decorator
 
 def format_rfc822_date(date_str=None):
     """日付文字列をRFC822形式に変換する"""
@@ -134,6 +110,17 @@ def fetch_hatena_hotentries_from_rss():
     
     return entries
 
+def update_global_store():
+    """グローバルストアのデータを更新する"""
+    try:
+        entries = fetch_hatena_hotentries()
+        with store_lock:
+            global_store['latest_entries'] = entries
+            global_store['last_update'] = datetime.now()
+        app.logger.info("グローバルストアのデータを更新しました")
+    except Exception as e:
+        app.logger.error(f"グローバルストアの更新に失敗しました: {str(e)}")
+
 def generate_rss_feed(entries, threshold):
     """エントリーからRSSフィードを生成する（文字列操作でXMLを生成）"""
     current_time = format_rfc822_date()
@@ -150,7 +137,7 @@ def generate_rss_feed(entries, threshold):
     xml += '    <language>ja</language>\n'
     xml += f'    <lastBuildDate>{current_time}</lastBuildDate>\n'
     xml += f'    <atom:link href="{html.escape(request.url)}" rel="self" type="application/rss+xml"/>\n'
-    xml += '    <ttl>10</ttl>\n'  # TTLを10分に設定
+    xml += '    <ttl>5</ttl>\n'  # TTLを5分に設定
     
     # 各エントリー
     for entry in entries:
@@ -171,10 +158,18 @@ def generate_rss_feed(entries, threshold):
     
     return xml
 
-def get_hotentry_feed_internal(threshold=100):
+def get_hotentry_feed_internal(threshold=100, use_cache=True):
     """ホットエントリーのRSSフィードを生成する内部関数"""
-    # はてなブックマークのホットエントリーを取得
-    entries = fetch_hatena_hotentries()
+    if use_cache:
+        with store_lock:
+            if global_store['latest_entries'] is not None:
+                entries = global_store['latest_entries']
+            else:
+                entries = fetch_hatena_hotentries()
+                global_store['latest_entries'] = entries
+                global_store['last_update'] = datetime.now()
+    else:
+        entries = fetch_hatena_hotentries()
     
     # しきい値以上のブックマーク数を持つエントリーをフィルタリング
     filtered_entries = []
@@ -201,7 +196,6 @@ def get_hotentry_feed_internal(threshold=100):
     return Response(rss_feed, mimetype='application/xml')
 
 @app.route('/hotentry/all/feed')
-@with_cache(600)  # 10分間キャッシュ
 def get_hotentry_feed():
     """ホットエントリーのRSSフィードを返す（キャッシュあり）"""
     # クエリパラメータからしきい値を取得（デフォルトは100）
@@ -211,7 +205,7 @@ def get_hotentry_feed():
     except ValueError:
         threshold = 100
     
-    return get_hotentry_feed_internal(threshold)
+    return get_hotentry_feed_internal(threshold, use_cache=True)
 
 @app.route('/hotentry/all/feed/nocache')
 def get_hotentry_feed_nocache():
@@ -223,11 +217,17 @@ def get_hotentry_feed_nocache():
     except ValueError:
         threshold = 100
     
-    return get_hotentry_feed_internal(threshold)
+    return get_hotentry_feed_internal(threshold, use_cache=False)
 
 @app.route('/')
 def index():
     """アプリケーションのホームページ"""
+    # 最終更新時刻を取得
+    last_update = None
+    with store_lock:
+        if global_store['last_update'] is not None:
+            last_update = global_store['last_update'].strftime("%Y-%m-%d %H:%M:%S")
+    
     return f"""
     <!DOCTYPE html>
     <html>
@@ -260,6 +260,11 @@ def index():
                 border-radius: 5px;
                 margin: 20px 0;
             }}
+            .status {{
+                color: #666;
+                font-size: 0.9em;
+                margin-top: 20px;
+            }}
         </style>
     </head>
     <body>
@@ -291,11 +296,35 @@ def index():
         <ul>
             <li>はてなブックマークの説明文を<code>&lt;description&gt;</code>に含めます</li>
             <li>IFTTTのRSSトリガーに対応したフォーマット</li>
+            <li>5分間隔で自動更新</li>
             <li>キャッシュありとキャッシュなしの2種類のエンドポイントを提供</li>
         </ul>
+        
+        <div class="status">
+            <p>最終更新: {last_update or "更新情報なし"}</p>
+        </div>
     </body>
     </html>
     """
+
+def init_scheduler():
+    """スケジューラーを初期化する"""
+    if not scheduler.running:
+        scheduler.add_job(
+            update_global_store,
+            trigger=IntervalTrigger(minutes=5),
+            id='update_feed',
+            name='Update RSS feed data',
+            replace_existing=True
+        )
+        scheduler.start()
+        app.logger.info("スケジューラーを開始しました")
+
+# 初期データを取得
+update_global_store()
+
+# スケジューラーを初期化
+init_scheduler()
 
 # PythonAnywhere用のWSGIアプリケーション
 application = app
