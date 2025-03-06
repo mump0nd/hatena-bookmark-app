@@ -27,6 +27,17 @@ USER_AGENTS = [
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15',
 ]
 
+# リクエストセッション
+session = requests.Session()
+session.headers.update({
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'DNT': '1',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1',
+})
+
 def get_cache_key(threshold):
     """キャッシュキーを生成する"""
     return f"threshold_{threshold}"
@@ -64,7 +75,7 @@ def fetch_hatena_hotentries():
     try:
         # APIからデータを取得
         url = "https://b.hatena.ne.jp/api/ipad.hotentry?mode=general"
-        response = requests.get(url, timeout=10)
+        response = session.get(url, timeout=10)
         response.raise_for_status()
         return response.json()
     except Exception as e:
@@ -75,7 +86,7 @@ def fetch_hatena_hotentries():
 def fetch_hatena_hotentries_from_rss():
     """はてなブックマークのホットエントリーをRSSフィードから取得する"""
     url = "https://b.hatena.ne.jp/hotentry.rss"
-    response = requests.get(url, timeout=10)
+    response = session.get(url, timeout=10)
     response.raise_for_status()
     
     # RSSフィードをパース
@@ -116,33 +127,24 @@ def fetch_hatena_hotentries_from_rss():
 
 def get_article_first_paragraphs(url, max_paragraphs=3, max_retries=3):
     """記事のURLから最初の3つの段落を取得する"""
+    session.headers['User-Agent'] = random.choice(USER_AGENTS)
+    
     for attempt in range(max_retries):
         try:
-            # ランダムなUser-Agentを選択
-            headers = {
-                'User-Agent': random.choice(USER_AGENTS),
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'DNT': '1',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'none',
-                'Sec-Fetch-User': '?1',
-                'Cache-Control': 'max-age=0',
-            }
-
-            # リクエスト間隔を設定（1-3秒のランダムな待機）
+            # リクエスト間隔を設定（0.5-1秒のランダムな待機）
             if attempt > 0:
-                time.sleep(random.uniform(1, 3))
+                time.sleep(random.uniform(0.5, 1))
 
-            response = requests.get(url, headers=headers, timeout=10)
+            response = session.get(url, timeout=5)
             response.raise_for_status()
             
             # html.parserを使用してBeautifulSoupオブジェクトを作成
             soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # メタディスクリプションを優先的に取得
+            meta_desc = soup.find('meta', attrs={'name': 'description'}) or soup.find('meta', attrs={'property': 'og:description'})
+            if meta_desc and meta_desc.get('content'):
+                return meta_desc.get('content')
             
             # 記事の本文から最初の3つの段落を取得
             paragraphs = soup.find_all('p')
@@ -158,19 +160,14 @@ def get_article_first_paragraphs(url, max_paragraphs=3, max_retries=3):
             
             if valid_paragraphs:
                 return "\n\n".join(valid_paragraphs)
-            else:
-                # 段落が見つからない場合はメタディスクリプションを試す
-                meta_desc = soup.find('meta', attrs={'name': 'description'}) or soup.find('meta', attrs={'property': 'og:description'})
-                if meta_desc and meta_desc.get('content'):
-                    return meta_desc.get('content')
-                
-                return "記事の概要を取得できませんでした"
+            
+            return "記事の概要を取得できませんでした"
 
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 429:  # Too Many Requests
                 if attempt < max_retries - 1:
                     app.logger.warning(f"レート制限に引っかかりました。{attempt + 1}回目のリトライを実行します...")
-                    time.sleep(random.uniform(5, 10))  # より長い待機時間
+                    time.sleep(random.uniform(1, 2))  # より短い待機時間
                     continue
                 else:
                     app.logger.error(f"レート制限により記事の取得に失敗しました: {str(e)}")
