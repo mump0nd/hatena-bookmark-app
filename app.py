@@ -1,7 +1,6 @@
 from flask import Flask, request, Response, url_for
 import requests
 import json
-from bs4 import BeautifulSoup
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 import time
@@ -23,19 +22,15 @@ cache_lock = threading.Lock()
 USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15',
 ]
 
 # リクエストセッション
 session = requests.Session()
 session.headers.update({
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Accept': 'application/json, text/xml',
     'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
     'Accept-Encoding': 'gzip, deflate, br',
-    'DNT': '1',
     'Connection': 'keep-alive',
-    'Upgrade-Insecure-Requests': '1',
 })
 
 def get_cache_key(threshold):
@@ -75,7 +70,8 @@ def fetch_hatena_hotentries():
     try:
         # APIからデータを取得
         url = "https://b.hatena.ne.jp/api/ipad.hotentry?mode=general"
-        response = session.get(url, timeout=10)
+        session.headers['User-Agent'] = random.choice(USER_AGENTS)
+        response = session.get(url, timeout=5)
         response.raise_for_status()
         return response.json()
     except Exception as e:
@@ -86,7 +82,8 @@ def fetch_hatena_hotentries():
 def fetch_hatena_hotentries_from_rss():
     """はてなブックマークのホットエントリーをRSSフィードから取得する"""
     url = "https://b.hatena.ne.jp/hotentry.rss"
-    response = session.get(url, timeout=10)
+    session.headers['User-Agent'] = random.choice(USER_AGENTS)
+    response = session.get(url, timeout=5)
     response.raise_for_status()
     
     # RSSフィードをパース
@@ -125,62 +122,6 @@ def fetch_hatena_hotentries_from_rss():
     
     return entries
 
-def get_article_first_paragraphs(url, max_paragraphs=3, max_retries=3):
-    """記事のURLから最初の3つの段落を取得する"""
-    session.headers['User-Agent'] = random.choice(USER_AGENTS)
-    
-    for attempt in range(max_retries):
-        try:
-            # リクエスト間隔を設定（0.5-1秒のランダムな待機）
-            if attempt > 0:
-                time.sleep(random.uniform(0.5, 1))
-
-            response = session.get(url, timeout=5)
-            response.raise_for_status()
-            
-            # html.parserを使用してBeautifulSoupオブジェクトを作成
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # メタディスクリプションを優先的に取得
-            meta_desc = soup.find('meta', attrs={'name': 'description'}) or soup.find('meta', attrs={'property': 'og:description'})
-            if meta_desc and meta_desc.get('content'):
-                return meta_desc.get('content')
-            
-            # 記事の本文から最初の3つの段落を取得
-            paragraphs = soup.find_all('p')
-            
-            # テキストが空でない段落のみを抽出
-            valid_paragraphs = []
-            for p in paragraphs:
-                text = p.get_text().strip()
-                if text and len(text) > 20:  # 短すぎる段落は除外
-                    valid_paragraphs.append(text)
-                    if len(valid_paragraphs) >= max_paragraphs:
-                        break
-            
-            if valid_paragraphs:
-                return "\n\n".join(valid_paragraphs)
-            
-            return "記事の概要を取得できませんでした"
-
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 429:  # Too Many Requests
-                if attempt < max_retries - 1:
-                    app.logger.warning(f"レート制限に引っかかりました。{attempt + 1}回目のリトライを実行します...")
-                    time.sleep(random.uniform(1, 2))  # より短い待機時間
-                    continue
-                else:
-                    app.logger.error(f"レート制限により記事の取得に失敗しました: {str(e)}")
-                    return "レート制限により記事の概要を取得できませんでした"
-            else:
-                app.logger.error(f"記事の取得中にHTTPエラーが発生しました: {str(e)}")
-                return "記事の概要を取得できませんでした"
-        except Exception as e:
-            app.logger.error(f"記事の取得中にエラーが発生しました: {str(e)}")
-            return "記事の概要を取得できませんでした"
-
-    return "記事の概要を取得できませんでした"
-
 def generate_rss_feed(entries, threshold):
     """エントリーからRSSフィードを生成する（文字列操作でXMLを生成）"""
     current_time = datetime.now().strftime("%a, %d %b %Y %H:%M:%S GMT")
@@ -202,12 +143,9 @@ def generate_rss_feed(entries, threshold):
     for entry in entries:
         xml += '    <item>\n'
         xml += f'      <title>{html.escape(entry.get("title", "無題"))}</title>\n'
-        xml += f'      <link>{html.escape(entry.get("link", ""))}</link>\n'
-        xml += f'      <guid isPermaLink="true">{html.escape(entry.get("link", ""))}</guid>\n'
+        xml += f'      <link>{html.escape(entry.get("url", ""))}</link>\n'
+        xml += f'      <guid isPermaLink="true">{html.escape(entry.get("url", ""))}</guid>\n'
         xml += f'      <description>{html.escape(entry.get("description", ""))}</description>\n'
-        xml += '      <content:encoded><![CDATA[\n'
-        xml += f'        {entry.get("content_html", "")}\n'
-        xml += '      ]]></content:encoded>\n'
         xml += f'      <pubDate>{entry.get("date", current_time)}</pubDate>\n'
         xml += '    </item>\n'
     
@@ -239,21 +177,11 @@ def get_hotentry_feed():
         bookmark_count = entry.get('count', 0)
         
         if bookmark_count >= threshold:
-            # 記事の冒頭3行を取得
-            article_paragraphs = get_article_first_paragraphs(entry.get('url', ''))
-            
-            # HTMLコンテンツを作成
-            content_html = ""
-            for paragraph in article_paragraphs.split("\n\n"):
-                if paragraph:
-                    content_html += f"<p>{paragraph}</p>\n"
-            
             # エントリー情報を整形
             formatted_entry = {
                 'title': entry.get('title', '無題'),
-                'link': entry.get('url', ''),
-                'description': article_paragraphs,
-                'content_html': content_html,
+                'url': entry.get('url', ''),
+                'description': entry.get('description', '説明なし'),
                 'date': entry.get('date', datetime.now().strftime("%a, %d %b %Y %H:%M:%S GMT"))
             }
             
@@ -323,8 +251,7 @@ def index():
         
         <h2>特徴</h2>
         <ul>
-            <li>記事の冒頭3段落を<code>&lt;description&gt;</code>に含めます</li>
-            <li>リッチなHTMLコンテンツを<code>&lt;content:encoded&gt;</code>に含めます</li>
+            <li>はてなブックマークの説明文を<code>&lt;description&gt;</code>に含めます</li>
             <li>10分間のキャッシュ機能により、サーバーの負荷を軽減します</li>
         </ul>
     </body>
