@@ -5,6 +5,7 @@
 ## 機能
 
 - はてなブックマークAPIからホットエントリーを取得
+- APIアクセスに失敗した場合はRSSフィードからデータを取得（フォールバック機能）
 - 指定したブックマーク数（threshold）以上の記事をフィルタリング
 - 記事の冒頭3段落を取得し、`<description>`に追加
 - RSS 2.0形式でフィードを生成
@@ -51,85 +52,49 @@ http://localhost:5001/hotentry/all/feed?threshold=200
 
 `threshold`パラメータに数値を指定することで、そのブックマーク数以上の記事のみをフィルタリングできます。
 
-## PythonAnywhereでの公開手順
+## Renderでのデプロイ手順
 
-### 1. PythonAnywhereにアカウントを作成
+### 1. Renderにアカウントを作成
 
-1. [PythonAnywhere](https://www.pythonanywhere.com/)にアクセスし、アカウントを作成します（無料プランでOK）
+1. [Render](https://render.com/)にアクセスし、アカウントを作成します
 2. ダッシュボードにログインします
 
-### 2. コードをアップロード
-
-#### 方法1: GitHubを使用する場合
+### 2. GitHubとの連携
 
 1. GitHubにリポジトリを作成し、コードをプッシュします
-2. PythonAnywhereのダッシュボードで「Consoles」タブを開き、「Bash」を選択します
-3. 以下のコマンドを実行してリポジトリをクローンします：
+2. Renderのダッシュボードで「New +」→「Web Service」を選択します
+3. GitHubアカウントを連携し、リポジトリを選択します
 
-```bash
-git clone https://github.com/mump0nd/hatena-bookmark-app.git
+### 3. Webサービスの設定
+
+1. 以下の設定を行います：
+   - **Name**: hatena-bookmark-app（または任意の名前）
+   - **Region**: お近くのリージョン（例：Singapore）
+   - **Branch**: main
+   - **Runtime**: Python 3
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `gunicorn app:app`
+
+2. 「Create Web Service」ボタンをクリックします
+
+### 4. アプリケーションにアクセス
+
+デプロイが完了すると、以下のURLでアプリケーションにアクセスできます：
+```
+https://hatena-bookmark-app.onrender.com
 ```
 
-#### 方法2: 直接ファイルをアップロードする場合
-
-1. PythonAnywhereのダッシュボードで「Files」タブを開きます
-2. 「mysite」ディレクトリに移動します（または新しいディレクトリを作成します）
-3. 「Upload a file」ボタンを使用して、app.pyとrequirements.txtをアップロードします
-
-### 3. 仮想環境を設定
-
-1. PythonAnywhereのダッシュボードで「Consoles」タブを開き、「Bash」を選択します
-2. 以下のコマンドを実行して仮想環境を作成し、依存パッケージをインストールします：
-
-```bash
-cd ~/hatena-bookmark-app  # または、アップロードしたディレクトリに移動
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+RSSフィードは以下のURLで取得できます：
+```
+https://hatena-bookmark-app.onrender.com/hotentry/all/feed?threshold=200
 ```
 
-### 4. Webアプリケーションを設定
+## Renderの特徴
 
-1. PythonAnywhereのダッシュボードで「Web」タブを開きます
-2. 「Add a new web app」ボタンをクリックします
-3. ドメイン名を確認し（通常は「yourusername.pythonanywhere.com」）、「Next」をクリックします
-4. 「Manual configuration」を選択し、Pythonのバージョンを選択して「Next」をクリックします
-5. 以下の設定を行います：
-   - **Code**: `/home/yourusername/hatena-bookmark-app`（または、アップロードしたディレクトリのパス）
-   - **Working directory**: `/home/yourusername/hatena-bookmark-app`
-   - **WSGI configuration file**: 自動的に作成されたファイルへのパスが表示されます
-
-6. WSGIファイルを編集します：
-   - 「WSGI configuration file」のリンクをクリックします
-   - ファイルの内容を以下のように編集します：
-
-```python
-import sys
-import os
-
-# 仮想環境のパスを追加
-path = '/home/yourusername/hatena-bookmark-app'
-if path not in sys.path:
-    sys.path.append(path)
-
-# 仮想環境のサイトパッケージを追加
-venv_path = os.path.join(path, 'venv')
-site_packages = os.path.join(venv_path, 'lib', 'python3.9', 'site-packages')
-if site_packages not in sys.path:
-    sys.path.append(site_packages)
-
-# アプリケーションをインポート
-from app import application
-```
-
-7. 「Save」ボタンをクリックします
-8. 「Web」タブに戻り、「Reload」ボタンをクリックしてアプリケーションを再起動します
-
-### 5. アプリケーションにアクセス
-
-1. ブラウザで `https://yourusername.pythonanywhere.com` にアクセスします
-2. RSSフィードを取得するには、以下のURLにアクセスします：
-   `https://yourusername.pythonanywhere.com/hotentry/all/feed?threshold=200`
+- **無料枠**: 月間750時間の実行時間（1つのサービスなら常時稼働可能）
+- **スリープ機能**: 15分間アクセスがないとスリープ状態になり、無料枠を節約
+- **API制限なし**: 外部APIへのアクセスが自由
+- **GitHubとの連携**: コードを更新するとRenderも自動的に更新
 
 ## APIエンドポイント
 
@@ -170,17 +135,17 @@ from app import application
 
 ## トラブルシューティング
 
-### PythonAnywhereでのエラーログの確認
+### Renderでのエラーログの確認
 
-エラーが発生した場合は、PythonAnywhereのダッシュボードで「Web」タブを開き、「Error log」をクリックしてエラーログを確認します。
+エラーが発生した場合は、Renderのダッシュボードで該当のWebサービスを選択し、「Logs」タブでエラーログを確認します。
 
 ### よくあるエラー
 
-1. **ModuleNotFoundError**: 依存パッケージがインストールされていない場合に発生します。仮想環境に必要なパッケージがすべてインストールされていることを確認してください。
+1. **ModuleNotFoundError**: 依存パッケージがインストールされていない場合に発生します。`requirements.txt`に必要なパッケージがすべて記載されていることを確認してください。
 
-2. **Permission Error**: ファイルのアクセス権限に問題がある場合に発生します。ファイルのパーミッションを確認してください。
+2. **Application Error**: アプリケーションの起動に失敗した場合に発生します。`Start Command`が正しく設定されているか確認してください。
 
-3. **WSGI Import Error**: WSGIファイルの設定に問題がある場合に発生します。パスが正しく設定されていることを確認してください。
+3. **Build Failed**: ビルドプロセスに失敗した場合に発生します。`Build Command`が正しく設定されているか確認してください。
 
 ## ライセンス
 
