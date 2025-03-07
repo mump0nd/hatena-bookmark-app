@@ -10,6 +10,7 @@
 - はてなブックマークの説明文を`<description>`に追加
 - RSS 2.0形式でフィードを生成（IFTTTのRSSトリガーに対応）
 - キャッシュありとキャッシュなしの2種類のエンドポイントを提供
+- UptimeRobotによる24時間監視でサーバーの常時稼働を維持
 
 ## IFTTTとの連携
 
@@ -105,7 +106,19 @@ http://localhost:5001/hotentry/all/feed/nocache?threshold=200
 
 2. 「Create Web Service」ボタンをクリックします
 
-### 4. アプリケーションにアクセス
+### 4. UptimeRobotの設定
+
+1. [UptimeRobot](https://uptimerobot.com/)にアカウントを作成
+2. 「Add New Monitor」をクリック
+3. 以下の設定を行います：
+   - **Monitor Type**: HTTP(s)
+   - **Friendly Name**: Hatena Bookmark App
+   - **URL**: https://hatena-bookmark-app.onrender.com/health
+   - **Monitoring Interval**: 5 minutes
+
+これにより、Renderの無料プランでもサーバーが停止せず、IFTTTのトリガーが正常に機能します。
+
+### 5. アプリケーションにアクセス
 
 デプロイが完了すると、以下のURLでアプリケーションにアクセスできます：
 ```
@@ -121,10 +134,11 @@ https://hatena-bookmark-app.onrender.com/hotentry/all/feed?threshold=200
 https://hatena-bookmark-app.onrender.com/hotentry/all/feed/nocache?threshold=200
 ```
 
-## Renderの特徴
+## Renderの特徴と対策
 
 - **無料枠**: 月間750時間の実行時間（1つのサービスなら常時稼働可能）
-- **スリープ機能**: 15分間アクセスがないとスリープ状態になり、無料枠を節約
+- **スリープ機能**: 15分間アクセスがないとスリープ状態になり、再起動に50秒程度必要
+- **スリープ対策**: UptimeRobotによる5分間隔の監視で常時稼働を維持
 - **API制限なし**: 外部APIへのアクセスが自由
 - **GitHubとの連携**: コードを更新するとRenderも自動的に更新
 
@@ -141,6 +155,11 @@ https://hatena-bookmark-app.onrender.com/hotentry/all/feed/nocache?threshold=200
    - `GET /hotentry/all/feed/nocache?threshold=XX`
    - キャッシュを使用せず、常に最新データを取得
    - IFTTTのRSSトリガーに最適
+
+3. **ヘルスチェックエンドポイント**
+   - `GET /health`
+   - UptimeRobotによる監視用
+   - サーバーの稼働状態を確認
 
 - `threshold` に設定したブックマーク数以上のホットエントリーをRSSで返します
 - デフォルト値は100です
@@ -190,8 +209,14 @@ https://hatena-bookmark-app.onrender.com/hotentry/all/feed/nocache?threshold=200
    - `/nocache`エンドポイントを使用しているか確認
    - RSSフィードのURLが正しいか確認
    - IFTTTの更新間隔（15-30分）を考慮
+   - UptimeRobotの監視が正常に機能しているか確認
 
-2. **重複した通知**
+2. **トリガーがタイムアウトする**
+   - UptimeRobotの監視が正常に機能しているか確認
+   - Renderのダッシュボードでサーバーの状態を確認
+   - 必要に応じてUptimeRobotの監視間隔を調整
+
+3. **重複した通知**
    - `guid`タグが正しく設定されているか確認
    - IFTTTのAppletの設定を確認
 
