@@ -9,7 +9,7 @@
 - 指定したブックマーク数（threshold）以上の記事をフィルタリング
 - はてなブックマークの説明文を`<description>`に追加
 - RSS 2.0形式でフィードを生成（IFTTTのRSSトリガーに対応）
-- キャッシュありとキャッシュなしの2種類のエンドポイントを提供
+- 常に最新のデータを取得（キャッシュなし）
 - UptimeRobotによる24時間監視でサーバーの常時稼働を維持
 
 ## IFTTTとの連携
@@ -19,12 +19,12 @@
 1. IFTTTで新しいAppletを作成
 2. 「If This」でトリガーとして「RSS Feed」を選択
 3. 「New feed item」を選択
-4. Feed URLに以下のURLを設定（キャッシュなしエンドポイント）：
+4. Feed URLに以下のURLを設定：
    ```
-   https://hatena-bookmark-app.onrender.com/hotentry/all/feed/nocache?threshold=200
+   https://hatena-bookmark-app.onrender.com/hotentry/all/feed?threshold=200
    ```
    - `threshold`パラメータで指定したブックマーク数以上の記事のみを取得
-   - `/nocache`エンドポイントを使用することで、常に最新のデータを取得
+   - 常に最新のデータを取得
 5. 「Then That」で任意のアクションを設定
    - Slackに通知
    - LINEに通知
@@ -35,7 +35,6 @@
 
 - IFTTTは通常15-30分間隔でフィードをチェック
 - 新しい記事は`pubDate`タグの日時を基準に判定
-- キャッシュの影響を避けるため、必ず`/nocache`エンドポイントを使用
 
 ## インストール
 
@@ -72,11 +71,8 @@ python app.py
 3. 以下のURLパターンでRSSフィードを取得できます：
 
 ```
-# 通常のエンドポイント（キャッシュあり）
+# RSSフィードエンドポイント
 http://localhost:5001/hotentry/all/feed?threshold=200
-
-# IFTTTトリガー用エンドポイント（キャッシュなし）
-http://localhost:5001/hotentry/all/feed/nocache?threshold=200
 ```
 
 `threshold`パラメータに数値を指定することで、そのブックマーク数以上の記事のみをフィルタリングできます。
@@ -127,11 +123,7 @@ https://hatena-bookmark-app.onrender.com
 
 RSSフィードは以下のURLで取得できます：
 ```
-# 通常のエンドポイント（キャッシュあり）
 https://hatena-bookmark-app.onrender.com/hotentry/all/feed?threshold=200
-
-# IFTTTトリガー用エンドポイント（キャッシュなし）
-https://hatena-bookmark-app.onrender.com/hotentry/all/feed/nocache?threshold=200
 ```
 
 ## Renderの特徴と対策
@@ -146,17 +138,12 @@ https://hatena-bookmark-app.onrender.com/hotentry/all/feed/nocache?threshold=200
 
 ### RSSフィードの取得
 
-1. **通常のエンドポイント（キャッシュあり）**
+1. **RSSフィードエンドポイント**
    - `GET /hotentry/all/feed?threshold=XX`
-   - 10分間のキャッシュを使用
-   - ブラウザでの閲覧に最適
+   - 常に最新データを取得
+   - ブラウザでの閲覧やIFTTTのRSSトリガーに最適
 
-2. **IFTTTトリガー用エンドポイント（キャッシュなし）**
-   - `GET /hotentry/all/feed/nocache?threshold=XX`
-   - キャッシュを使用せず、常に最新データを取得
-   - IFTTTのRSSトリガーに最適
-
-3. **ヘルスチェックエンドポイント**
+2. **ヘルスチェックエンドポイント**
    - `GET /health`
    - UptimeRobotによる監視用
    - サーバーの稼働状態を確認
@@ -206,7 +193,6 @@ https://hatena-bookmark-app.onrender.com/hotentry/all/feed/nocache?threshold=200
 ### IFTTTのトラブルシューティング
 
 1. **トリガーが発動しない**
-   - `/nocache`エンドポイントを使用しているか確認
    - RSSフィードのURLが正しいか確認
    - IFTTTの更新間隔（15-30分）を考慮
    - UptimeRobotの監視が正常に機能しているか確認

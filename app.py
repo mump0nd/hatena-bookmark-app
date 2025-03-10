@@ -170,19 +170,11 @@ def generate_rss_feed(entries, threshold):
     
     return xml
 
-def get_hotentry_feed_internal(threshold=100, use_cache=True):
+def get_hotentry_feed_internal(threshold=100):
     """ホットエントリーのRSSフィードを生成する内部関数"""
     try:
-        if use_cache:
-            with store_lock:
-                if global_store['latest_entries'] is not None:
-                    entries = global_store['latest_entries']
-                else:
-                    entries = fetch_hatena_hotentries()
-                    global_store['latest_entries'] = entries
-                    global_store['last_update'] = datetime.now()
-        else:
-            entries = fetch_hatena_hotentries()
+        # 常に最新のデータを取得
+        entries = fetch_hatena_hotentries()
         
         # しきい値以上のブックマーク数を持つエントリーをフィルタリング
         filtered_entries = []
@@ -216,7 +208,7 @@ def get_hotentry_feed_internal(threshold=100, use_cache=True):
 
 @app.route('/hotentry/all/feed')
 def get_hotentry_feed():
-    """ホットエントリーのRSSフィードを返す（キャッシュあり）"""
+    """ホットエントリーのRSSフィードを返す（常に最新データを取得）"""
     # クエリパラメータからしきい値を取得（デフォルトは100）
     threshold = request.args.get('threshold', '100')
     try:
@@ -224,19 +216,20 @@ def get_hotentry_feed():
     except ValueError:
         threshold = 100
     
-    return get_hotentry_feed_internal(threshold, use_cache=True)
+    return get_hotentry_feed_internal(threshold)
 
+# 互換性のために古いエンドポイントも維持
 @app.route('/hotentry/all/feed/nocache')
 def get_hotentry_feed_nocache():
-    """ホットエントリーのRSSフィードを返す（キャッシュなし、IFTTT用）"""
-    # クエリパラメータからしきい値を取得（デフォルトは100）
+    """ホットエントリーのRSSフィードを返す（IFTTT用、/hotentry/all/feedにリダイレクト）"""
+    # クエリパラメータからしきい値を取得
     threshold = request.args.get('threshold', '100')
     try:
         threshold = int(threshold)
     except ValueError:
         threshold = 100
     
-    return get_hotentry_feed_internal(threshold, use_cache=False)
+    return get_hotentry_feed_internal(threshold)
 
 @app.route('/debug/ifttt')
 def debug_ifttt():
@@ -266,14 +259,13 @@ def debug_ifttt():
         <h2>IFTTTでの設定方法</h2>
         <ol>
             <li>IFTTTで「RSS Feed」トリガーを選択</li>
-            <li>以下のURLを入力: <code>{request.host_url}hotentry/all/feed/nocache?threshold=200</code></li>
+            <li>以下のURLを入力: <code>{request.host_url}hotentry/all/feed?threshold=200</code></li>
             <li>「New feed item」を選択</li>
             <li>任意のアクションを設定（例: Lineに通知）</li>
         </ol>
         
         <h2>トラブルシューティング</h2>
         <ol>
-            <li>キャッシュなしのエンドポイント (<code>/nocache</code>) を使用しているか確認</li>
             <li>URLが正しいか確認（特に末尾のスラッシュ）</li>
             <li>しきい値が適切か確認（あまり高いと記事が少なくなる）</li>
             <li>IFTTTの「Check now」ボタンを押して手動で確認</li>
@@ -282,8 +274,8 @@ def debug_ifttt():
         <h2>RSSフィードの確認方法</h2>
         <p>以下のリンクで直接RSSフィードを確認できます：</p>
         <ul>
-            <li><a href="/hotentry/all/feed/nocache?threshold=100" target="_blank">100ブックマーク以上</a></li>
-            <li><a href="/hotentry/all/feed/nocache?threshold=200" target="_blank">200ブックマーク以上</a></li>
+            <li><a href="/hotentry/all/feed?threshold=100" target="_blank">100ブックマーク以上</a></li>
+            <li><a href="/hotentry/all/feed?threshold=200" target="_blank">200ブックマーク以上</a></li>
         </ul>
         
         <p class="important">注意: IFTTTでは「New feed item」トリガーを使用し、頻繁に更新されるアイテムを検出するためには、アプレットを一度無効にしてから再度有効にすると良いことがあります。</p>
@@ -356,11 +348,10 @@ def index():
         <p><code>threshold</code>パラメータに数値を指定することで、そのブックマーク数以上の記事のみをフィルタリングできます。</p>
         
         <h2>IFTTT用エンドポイント</h2>
-        <p>IFTTTのRSSトリガー用に、キャッシュなしのエンドポイントを提供しています：</p>
+        <p>IFTTTのRSSトリガー用に最適化されたエンドポイントを提供しています：</p>
         <div class="example">
-            <code>{request.host_url}hotentry/all/feed/nocache?threshold=200</code>
+            <code>{request.host_url}hotentry/all/feed?threshold=200</code>
         </div>
-        <p class="important">IFTTTを使用する場合は必ず上記の「nocache」エンドポイントを使用してください。</p>
         <p><a href="/debug/ifttt">IFTTTデバッグページ</a>でトラブルシューティングができます。</p>
         
         <h2>例</h2>
@@ -374,8 +365,8 @@ def index():
         <ul>
             <li>はてなブックマークの説明文を<code>&lt;description&gt;</code>に含めます</li>
             <li>IFTTTのRSSトリガーに対応したフォーマット</li>
-            <li>5分間隔で自動更新</li>
-            <li>キャッシュありとキャッシュなしの2種類のエンドポイントを提供</li>
+            <li>常に最新のデータを取得（キャッシュなし）</li>
+            <li>5分間隔でバックグラウンドデータ更新</li>
         </ul>
         
         <div class="status">
