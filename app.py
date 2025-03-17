@@ -333,6 +333,16 @@ def index():
                 color: #d9534f;
                 font-weight: bold;
             }}
+            .support {{
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid #eee;
+                text-align: center;
+            }}
+            .support p {{
+                margin-bottom: 15px;
+                color: #666;
+            }}
         </style>
     </head>
     <body>
@@ -371,6 +381,13 @@ def index():
         
         <div class="status">
             <p>最終更新: {last_update or "更新情報なし"}</p>
+        </div>
+        
+        <div class="support">
+            <p>このサービスが役立つと感じたら、開発者をサポートしてください</p>
+            <a href="https://www.buymeacoffee.com/mump0nd" target="_blank">
+                <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;">
+            </a>
         </div>
     </body>
     </html>
