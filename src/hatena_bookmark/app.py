@@ -84,44 +84,224 @@ def create_app():
         # スタティックなHTMLを返す
         return f"""
         <!DOCTYPE html>
-        <html>
+        <html lang="ja">
         <head>
-            <title>IFTTT RSSトリガーデバッグ</title>
+            <title>IFTTT RSSトリガーデバッグ | はてなブックマークRSS</title>
             <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <link rel="preconnect" href="https://fonts.googleapis.com">
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+            <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
             <style>
-                body {{ font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }}
-                pre {{ background: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto; }}
-                .item {{ border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 5px; }}
-                .important {{ color: #d9534f; font-weight: bold; }}
+                :root {{
+                    --hatena-blue: #2468b7;
+                    --hatena-light-blue: #e5f0fa;
+                    --hatena-dark-blue: #1a4c80;
+                    --accent-color: #ff4e2e;
+                    --text-color: #333;
+                    --light-gray: #f5f5f5;
+                    --border-color: #ddd;
+                }}
+                
+                * {{
+                    box-sizing: border-box;
+                    margin: 0;
+                    padding: 0;
+                }}
+                
+                body {{
+                    font-family: 'M PLUS Rounded 1c', 'Hiragino Kaku Gothic ProN', 'メイリオ', sans-serif;
+                    color: var(--text-color);
+                    line-height: 1.6;
+                    background-color: #f9f9f9;
+                    padding-bottom: 40px;
+                }}
+                
+                header {{
+                    background-color: var(--hatena-blue);
+                    color: white;
+                    padding: 1rem;
+                    text-align: center;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }}
+                
+                nav {{
+                    background-color: white;
+                    padding: 0.5rem 1rem;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                }}
+                
+                nav ul {{
+                    display: flex;
+                    list-style: none;
+                    justify-content: center;
+                }}
+                
+                nav li {{
+                    margin: 0 1rem;
+                }}
+                
+                nav a {{
+                    color: var(--hatena-blue);
+                    text-decoration: none;
+                    font-weight: bold;
+                    transition: color 0.3s;
+                }}
+                
+                nav a:hover {{
+                    color: var(--accent-color);
+                }}
+                
+                main {{
+                    max-width: 800px;
+                    margin: 2rem auto;
+                    padding: 0 1rem;
+                }}
+                
+                .card {{
+                    background-color: white;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    padding: 1.5rem;
+                    margin-bottom: 2rem;
+                    transition: transform 0.3s, box-shadow 0.3s;
+                }}
+                
+                .card:hover {{
+                    transform: translateY(-5px);
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                }}
+                
+                h1, h2, h3 {{
+                    color: var(--hatena-blue);
+                    margin-bottom: 1rem;
+                }}
+                
+                h1 {{
+                    font-size: 1.8rem;
+                }}
+                
+                h2 {{
+                    font-size: 1.5rem;
+                    border-bottom: 2px solid var(--hatena-light-blue);
+                    padding-bottom: 0.5rem;
+                    margin-top: 2rem;
+                }}
+                
+                p {{
+                    margin-bottom: 1rem;
+                }}
+                
+                code {{
+                    background-color: var(--light-gray);
+                    padding: 0.2rem 0.4rem;
+                    border-radius: 4px;
+                    font-family: monospace;
+                    color: var(--accent-color);
+                }}
+                
+                .example {{
+                    background-color: var(--hatena-light-blue);
+                    padding: 1rem;
+                    border-radius: 8px;
+                    margin: 1rem 0;
+                    border-left: 4px solid var(--hatena-blue);
+                }}
+                
+                ol, ul {{
+                    margin-left: 1.5rem;
+                    margin-bottom: 1rem;
+                }}
+                
+                li {{
+                    margin-bottom: 0.5rem;
+                }}
+                
+                a {{
+                    color: var(--hatena-blue);
+                    text-decoration: none;
+                    transition: color 0.3s;
+                }}
+                
+                a:hover {{
+                    color: var(--accent-color);
+                    text-decoration: underline;
+                }}
+                
+                .important {{
+                    background-color: #fff3cd;
+                    border-left: 4px solid #ffc107;
+                    padding: 1rem;
+                    margin: 1rem 0;
+                    border-radius: 4px;
+                }}
+                
+                .important::before {{
+                    content: "⚠️ ";
+                }}
+                
+                footer {{
+                    text-align: center;
+                    margin-top: 3rem;
+                    color: #666;
+                    font-size: 0.9rem;
+                }}
             </style>
         </head>
         <body>
-            <h1>IFTTT RSSトリガーデバッグ</h1>
-            <p>このページは、IFTTTのRSSトリガーで問題が発生した場合のデバッグに使用します。</p>
+            <header>
+                <h1>はてなブックマーク RSS ジェネレーター</h1>
+            </header>
             
-            <h2>IFTTTでの設定方法</h2>
-            <ol>
-                <li>IFTTTで「RSS Feed」トリガーを選択</li>
-                <li>以下のURLを入力: <code>{request.host_url}hotentry/all/feed?threshold=200</code></li>
-                <li>「New feed item」を選択</li>
-                <li>任意のアクションを設定（例: Lineに通知）</li>
-            </ol>
+            <nav>
+                <ul>
+                    <li><a href="/">ホーム</a></li>
+                    <li><a href="/debug/ifttt">IFTTTデバッグ</a></li>
+                </ul>
+            </nav>
             
-            <h2>トラブルシューティング</h2>
-            <ol>
-                <li>URLが正しいか確認（特に末尾のスラッシュ）</li>
-                <li>しきい値が適切か確認（あまり高いと記事が少なくなる）</li>
-                <li>IFTTTの「Check now」ボタンを押して手動で確認</li>
-            </ol>
+            <main>
+                <div class="card">
+                    <h2>IFTTT RSSトリガーデバッグ</h2>
+                    <p>このページは、IFTTTのRSSトリガーで問題が発生した場合のデバッグに使用します。</p>
+                </div>
+                
+                <div class="card">
+                    <h2>IFTTTでの設定方法</h2>
+                    <ol>
+                        <li>IFTTTで「RSS Feed」トリガーを選択</li>
+                        <li>以下のURLを入力: <code>{request.host_url}hotentry/all/feed?threshold=200</code></li>
+                        <li>「New feed item」を選択</li>
+                        <li>任意のアクションを設定（例: Lineに通知）</li>
+                    </ol>
+                </div>
+                
+                <div class="card">
+                    <h2>トラブルシューティング</h2>
+                    <ol>
+                        <li>URLが正しいか確認（特に末尾のスラッシュ）</li>
+                        <li>しきい値が適切か確認（あまり高いと記事が少なくなる）</li>
+                        <li>IFTTTの「Check now」ボタンを押して手動で確認</li>
+                    </ol>
+                </div>
+                
+                <div class="card">
+                    <h2>RSSフィードの確認方法</h2>
+                    <p>以下のリンクで直接RSSフィードを確認できます：</p>
+                    <ul>
+                        <li><a href="/hotentry/all/feed?threshold=100" target="_blank">100ブックマーク以上</a></li>
+                        <li><a href="/hotentry/all/feed?threshold=200" target="_blank">200ブックマーク以上</a></li>
+                    </ul>
+                    
+                    <div class="important">
+                        <p>IFTTTでは「New feed item」トリガーを使用し、頻繁に更新されるアイテムを検出するためには、アプレットを一度無効にしてから再度有効にすると良いことがあります。</p>
+                    </div>
+                </div>
+            </main>
             
-            <h2>RSSフィードの確認方法</h2>
-            <p>以下のリンクで直接RSSフィードを確認できます：</p>
-            <ul>
-                <li><a href="/hotentry/all/feed?threshold=100" target="_blank">100ブックマーク以上</a></li>
-                <li><a href="/hotentry/all/feed?threshold=200" target="_blank">200ブックマーク以上</a></li>
-            </ul>
-            
-            <p class="important">注意: IFTTTでは「New feed item」トリガーを使用し、頻繁に更新されるアイテムを検出するためには、アプレットを一度無効にしてから再度有効にすると良いことがあります。</p>
+            <footer>
+                <p>© 2025 はてなブックマーク RSS ジェネレーター</p>
+            </footer>
         </body>
         </html>
         """
@@ -141,101 +321,312 @@ def create_app():
         
         return f"""
         <!DOCTYPE html>
-        <html>
+        <html lang="ja">
         <head>
             <title>はてなブックマーク ホットエントリー RSS</title>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
+            <link rel="preconnect" href="https://fonts.googleapis.com">
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+            <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
             <style>
+                :root {{
+                    --hatena-blue: #2468b7;
+                    --hatena-light-blue: #e5f0fa;
+                    --hatena-dark-blue: #1a4c80;
+                    --accent-color: #ff4e2e;
+                    --text-color: #333;
+                    --light-gray: #f5f5f5;
+                    --border-color: #ddd;
+                }}
+                
+                * {{
+                    box-sizing: border-box;
+                    margin: 0;
+                    padding: 0;
+                }}
+                
                 body {{
-                    font-family: Arial, sans-serif;
-                    max-width: 800px;
-                    margin: 0 auto;
-                    padding: 20px;
+                    font-family: 'M PLUS Rounded 1c', 'Hiragino Kaku Gothic ProN', 'メイリオ', sans-serif;
+                    color: var(--text-color);
                     line-height: 1.6;
-                }}
-                h1 {{
-                    color: #333;
-                    border-bottom: 1px solid #eee;
-                    padding-bottom: 10px;
-                }}
-                code {{
-                    background-color: #f5f5f5;
-                    padding: 2px 5px;
-                    border-radius: 3px;
-                    font-family: monospace;
-                }}
-                .example {{
                     background-color: #f9f9f9;
-                    padding: 15px;
-                    border-radius: 5px;
-                    margin: 20px 0;
+                    padding-bottom: 40px;
                 }}
-                .status {{
-                    color: #666;
-                    font-size: 0.9em;
-                    margin-top: 20px;
+                
+                header {{
+                    background-color: var(--hatena-blue);
+                    color: white;
+                    padding: 1.5rem;
+                    text-align: center;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    position: relative;
+                    overflow: hidden;
                 }}
-                .important {{
-                    color: #d9534f;
+                
+                header::before {{
+                    content: "";
+                    position: absolute;
+                    top: -10px;
+                    left: -10px;
+                    right: -10px;
+                    bottom: -10px;
+                    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 50%);
+                    z-index: 1;
+                }}
+                
+                header h1 {{
+                    position: relative;
+                    z-index: 2;
+                    color: white;
+                    margin: 0;
+                    font-size: 2rem;
+                }}
+                
+                nav {{
+                    background-color: white;
+                    padding: 0.5rem 1rem;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                }}
+                
+                nav ul {{
+                    display: flex;
+                    list-style: none;
+                    justify-content: center;
+                }}
+                
+                nav li {{
+                    margin: 0 1rem;
+                }}
+                
+                nav a {{
+                    color: var(--hatena-blue);
+                    text-decoration: none;
+                    font-weight: bold;
+                    transition: color 0.3s;
+                }}
+                
+                nav a:hover {{
+                    color: var(--accent-color);
+                }}
+                
+                main {{
+                    max-width: 800px;
+                    margin: 2rem auto;
+                    padding: 0 1rem;
+                }}
+                
+                .card {{
+                    background-color: white;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    padding: 1.5rem;
+                    margin-bottom: 2rem;
+                    transition: transform 0.3s, box-shadow 0.3s;
+                }}
+                
+                .card:hover {{
+                    transform: translateY(-5px);
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                }}
+                
+                h1, h2, h3 {{
+                    color: var(--hatena-blue);
+                    margin-bottom: 1rem;
+                }}
+                
+                h2 {{
+                    font-size: 1.5rem;
+                    border-bottom: 2px solid var(--hatena-light-blue);
+                    padding-bottom: 0.5rem;
+                    margin-top: 1rem;
+                }}
+                
+                p {{
+                    margin-bottom: 1rem;
+                }}
+                
+                code {{
+                    background-color: var(--light-gray);
+                    padding: 0.2rem 0.4rem;
+                    border-radius: 4px;
+                    font-family: monospace;
+                    color: var(--accent-color);
+                }}
+                
+                .example {{
+                    background-color: var(--hatena-light-blue);
+                    padding: 1rem;
+                    border-radius: 8px;
+                    margin: 1rem 0;
+                    border-left: 4px solid var(--hatena-blue);
+                }}
+                
+                ol, ul {{
+                    margin-left: 1.5rem;
+                    margin-bottom: 1rem;
+                }}
+                
+                li {{
+                    margin-bottom: 0.5rem;
+                }}
+                
+                a {{
+                    color: var(--hatena-blue);
+                    text-decoration: none;
+                    transition: color 0.3s;
+                }}
+                
+                a:hover {{
+                    color: var(--accent-color);
+                    text-decoration: underline;
+                }}
+                
+                .feature-list {{
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                    gap: 1rem;
+                    margin-top: 1rem;
+                }}
+                
+                .feature-item {{
+                    background-color: var(--hatena-light-blue);
+                    padding: 1rem;
+                    border-radius: 8px;
+                    display: flex;
+                    align-items: center;
+                }}
+                
+                .feature-item::before {{
+                    content: "✓";
+                    display: inline-block;
+                    margin-right: 0.5rem;
+                    color: var(--hatena-blue);
                     font-weight: bold;
                 }}
-                .support {{
-                    margin-top: 30px;
-                    padding-top: 20px;
-                    border-top: 1px solid #eee;
-                    text-align: center;
-                }}
-                .support p {{
-                    margin-bottom: 15px;
+                
+                .status {{
+                    background-color: var(--light-gray);
+                    padding: 0.5rem 1rem;
+                    border-radius: 4px;
+                    margin-top: 1rem;
+                    font-size: 0.9rem;
                     color: #666;
+                }}
+                
+                .support {{
+                    margin-top: 2rem;
+                    text-align: center;
+                    padding: 1rem;
+                    background-color: white;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                }}
+                
+                .support p {{
+                    margin-bottom: 1rem;
+                    color: #666;
+                }}
+                
+                .btn {{
+                    display: inline-block;
+                    background-color: var(--hatena-blue);
+                    color: white;
+                    padding: 0.5rem 1rem;
+                    border-radius: 4px;
+                    text-decoration: none;
+                    transition: background-color 0.3s;
+                }}
+                
+                .btn:hover {{
+                    background-color: var(--hatena-dark-blue);
+                    text-decoration: none;
+                }}
+                
+                footer {{
+                    text-align: center;
+                    margin-top: 3rem;
+                    color: #666;
+                    font-size: 0.9rem;
+                }}
+                
+                @media (max-width: 600px) {{
+                    .feature-list {{
+                        grid-template-columns: 1fr;
+                    }}
                 }}
             </style>
         </head>
         <body>
-            <h1>はてなブックマーク ホットエントリー RSS</h1>
-            <p>このサービスは、はてなブックマークのホットエントリーから指定したブックマーク数以上の記事をRSSフィードとして提供します。</p>
+            <header>
+                <h1>はてなブックマーク ホットエントリー RSS</h1>
+            </header>
             
-            <h2>使い方</h2>
-            <p>以下のURLにアクセスすることで、RSSフィードを取得できます：</p>
-            <div class="example">
-                <code>{request.host_url}hotentry/all/feed?threshold=200</code>
-            </div>
+            <nav>
+                <ul>
+                    <li><a href="/">ホーム</a></li>
+                    <li><a href="/debug/ifttt">IFTTTデバッグ</a></li>
+                </ul>
+            </nav>
             
-            <p><code>threshold</code>パラメータに数値を指定することで、そのブックマーク数以上の記事のみをフィルタリングできます。</p>
+            <main>
+                <div class="card">
+                    <p>このサービスは、はてなブックマークのホットエントリーから指定したブックマーク数以上の記事をRSSフィードとして提供します。IFTTTと連携して、新しい人気記事の通知を自動化できます。</p>
+                </div>
+                
+                <div class="card">
+                    <h2>使い方</h2>
+                    <p>以下のURLにアクセスすることで、RSSフィードを取得できます：</p>
+                    <div class="example">
+                        <code>{request.host_url}hotentry/all/feed?threshold=200</code>
+                    </div>
+                    
+                    <p><code>threshold</code>パラメータに数値を指定することで、そのブックマーク数以上の記事のみをフィルタリングできます。</p>
+                </div>
+                
+                <div class="card">
+                    <h2>IFTTT用エンドポイント</h2>
+                    <p>IFTTTのRSSトリガー用に最適化されたエンドポイントを提供しています：</p>
+                    <div class="example">
+                        <code>{request.host_url}hotentry/all/feed?threshold=200</code>
+                    </div>
+                    <p><a href="/debug/ifttt" class="btn">IFTTTデバッグページ</a></p>
+                </div>
+                
+                <div class="card">
+                    <h2>例</h2>
+                    <ul>
+                        <li><a href="{url_for('hotentry_feed', threshold=100)}" target="_blank">100ブックマーク以上の記事</a></li>
+                        <li><a href="{url_for('hotentry_feed', threshold=200)}" target="_blank">200ブックマーク以上の記事</a></li>
+                        <li><a href="{url_for('hotentry_feed', threshold=500)}" target="_blank">500ブックマーク以上の記事</a></li>
+                    </ul>
+                </div>
+                
+                <div class="card">
+                    <h2>特徴</h2>
+                    <div class="feature-list">
+                        <div class="feature-item">はてなブックマークの説明文を含む</div>
+                        <div class="feature-item">IFTTTのRSSトリガーに対応</div>
+                        <div class="feature-item">常に最新のデータを取得</div>
+                        <div class="feature-item">5分間隔でデータ更新</div>
+                    </div>
+                    
+                    <div class="status">
+                        <p>最終更新: {last_update or "更新情報なし"}</p>
+                    </div>
+                </div>
+                
+                <div class="support">
+                    <p>このサービスが役立つと感じたら、開発者をサポートしてください</p>
+                    <a href="https://www.buymeacoffee.com/mump0nd" target="_blank">
+                        <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;">
+                    </a>
+                </div>
+            </main>
             
-            <h2>IFTTT用エンドポイント</h2>
-            <p>IFTTTのRSSトリガー用に最適化されたエンドポイントを提供しています：</p>
-            <div class="example">
-                <code>{request.host_url}hotentry/all/feed?threshold=200</code>
-            </div>
-            <p><a href="/debug/ifttt">IFTTTデバッグページ</a>でトラブルシューティングができます。</p>
-            
-            <h2>例</h2>
-            <ul>
-                <li><a href="{url_for('hotentry_feed', threshold=100)}" target="_blank">100ブックマーク以上の記事</a></li>
-                <li><a href="{url_for('hotentry_feed', threshold=200)}" target="_blank">200ブックマーク以上の記事</a></li>
-                <li><a href="{url_for('hotentry_feed', threshold=500)}" target="_blank">500ブックマーク以上の記事</a></li>
-            </ul>
-            
-            <h2>特徴</h2>
-            <ul>
-                <li>はてなブックマークの説明文を<code>&lt;description&gt;</code>に含めます</li>
-                <li>IFTTTのRSSトリガーに対応したフォーマット</li>
-                <li>常に最新のデータを取得（キャッシュなし）</li>
-                <li>5分間隔でバックグラウンドデータ更新</li>
-            </ul>
-            
-            <div class="status">
-                <p>最終更新: {last_update or "更新情報なし"}</p>
-            </div>
-            
-            <div class="support">
-                <p>このサービスが役立つと感じたら、開発者をサポートしてください</p>
-                <a href="https://www.buymeacoffee.com/mump0nd" target="_blank">
-                    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;">
-                </a>
-            </div>
+            <footer>
+                <p>© 2025 はてなブックマーク RSS ジェネレーター</p>
+            </footer>
         </body>
         </html>
         """
