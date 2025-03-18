@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF
+    xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    xmlns:rss="http://purl.org/rss/1.0/"
+    xmlns:dc="http://purl.org/dc/elements/1.1/"
+    xmlns:content="http://purl.org/rss/1.0/modules/content/"
+    xmlns:hatena="http://www.hatena.ne.jp/info/xmlns#">
+    <rss:item>
+        <rss:title>テスト記事1</rss:title>
+        <rss:link>https://example.com/1</rss:link>
+        <rss:description>テスト説明1</rss:description>
+        <dc:date>2023-01-01T00:00:00Z</dc:date>
+        <hatena:bookmarkcount>200</hatena:bookmarkcount>
+    </rss:item>
+    <rss:item>
+        <rss:title>テスト記事2</rss:title>
+        <rss:link>https://example.com/2</rss:link>
+        <rss:description>テスト説明2</rss:description>
+        <dc:date>2023-01-02T00:00:00Z</dc:date>
+        <hatena:bookmarkcount>300</hatena:bookmarkcount>
+    </rss:item>
+    <rss:item>
+        <rss:title>テスト記事3</rss:title>
+        <rss:link>https://example.com/3</rss:link>
+        <rss:description>テスト説明3</rss:description>
+        <dc:date>2023-01-03T00:00:00Z</dc:date>
+        <hatena:bookmarkcount>150</hatena:bookmarkcount>
+    </rss:item>
+</rdf:RDF>

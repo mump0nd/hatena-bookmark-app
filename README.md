@@ -41,19 +41,22 @@
 ```bash
 # リポジトリをクローン
 git clone https://github.com/mump0nd/hatena-bookmark-app.git
-cd hatena_bookmark_app
+cd hatena-bookmark-app
 
 # 仮想環境を作成
 python -m venv venv
 
 # 仮想環境を有効化
 # Windows
-venv\Scripts\activate
+# venv\Scripts\activate
 # macOS/Linux
 source venv/bin/activate
 
 # 依存パッケージをインストール
 pip install -r requirements.txt
+
+# 開発用パッケージをインストール（オプション）
+pip install -r requirements-dev.txt
 ```
 
 ## ローカルでの使い方
@@ -64,7 +67,7 @@ pip install -r requirements.txt
 # 開発サーバーを起動
 flask run
 # または
-python app.py
+python -m src.hatena_bookmark.app
 ```
 
 2. ブラウザで http://localhost:5001 にアクセスします
@@ -76,6 +79,55 @@ http://localhost:5001/hotentry/all/feed?threshold=200
 ```
 
 `threshold`パラメータに数値を指定することで、そのブックマーク数以上の記事のみをフィルタリングできます。
+
+## プロジェクト構造
+
+```
+/
+├── src/                       # ソースコードディレクトリ
+│   └── hatena_bookmark/       # メインパッケージ
+│       ├── __init__.py        # パッケージ初期化
+│       ├── app.py             # アプリケーション定義
+│       ├── api.py             # API関連の機能
+│       ├── feed.py            # フィード生成機能
+│       └── utils.py           # ユーティリティ関数
+├── tests/                     # テストディレクトリ
+│   ├── __init__.py
+│   ├── test_api.py
+│   ├── test_feed.py
+│   └── fixtures/              # テストデータ
+│       └── popular_entries.xml
+├── docs/                      # ドキュメントディレクトリ
+│   └── design.md              # 設計ドキュメント
+├── environments/              # 環境設定ディレクトリ
+│   ├── dev/
+│   │   └── .env.example       # 開発環境の環境変数例
+│   ├── staging/
+│   │   └── .env.example       # ステージング環境の環境変数例
+│   └── prod/
+│       └── .env.example       # 本番環境の環境変数例
+├── infra/                     # インフラ設定ディレクトリ
+│   └── Dockerfile             # Dockerファイル
+├── .gitignore                 # Gitの除外設定
+├── README.md                  # プロジェクト説明
+├── requirements.txt           # 本番用依存パッケージ
+├── requirements-dev.txt       # 開発用依存パッケージ
+├── wsgi.py                    # WSGI設定
+└── Procfile                   # Renderデプロイ設定
+```
+
+## テスト実行
+
+```bash
+# 全てのテストを実行
+pytest
+
+# カバレッジレポートを生成
+pytest --cov=src
+
+# 特定のテストを実行
+pytest tests/test_api.py
+```
 
 ## Renderでのデプロイ手順
 
@@ -98,7 +150,7 @@ http://localhost:5001/hotentry/all/feed?threshold=200
    - **Branch**: main
    - **Runtime**: Python 3
    - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `gunicorn app:app --timeout 120 --workers 4`
+   - **Start Command**: `gunicorn wsgi:application --timeout 120 --workers 4`
 
 2. 「Create Web Service」ボタンをクリックします
 
@@ -113,26 +165,6 @@ http://localhost:5001/hotentry/all/feed?threshold=200
    - **Monitoring Interval**: 5 minutes
 
 これにより、Renderの無料プランでもサーバーが停止せず、IFTTTのトリガーが正常に機能します。
-
-### 5. アプリケーションにアクセス
-
-デプロイが完了すると、以下のURLでアプリケーションにアクセスできます：
-```
-https://hatena-bookmark-app.onrender.com
-```
-
-RSSフィードは以下のURLで取得できます：
-```
-https://hatena-bookmark-app.onrender.com/hotentry/all/feed?threshold=200
-```
-
-## Renderの特徴と対策
-
-- **無料枠**: 月間750時間の実行時間（1つのサービスなら常時稼働可能）
-- **スリープ機能**: 15分間アクセスがないとスリープ状態になり、再起動に50秒程度必要
-- **スリープ対策**: UptimeRobotによる5分間隔の監視で常時稼働を維持
-- **API制限なし**: 外部APIへのアクセスが自由
-- **GitHubとの連携**: コードを更新するとRenderも自動的に更新
 
 ## APIエンドポイント
 
@@ -150,31 +182,6 @@ https://hatena-bookmark-app.onrender.com/hotentry/all/feed?threshold=200
 
 - `threshold` に設定したブックマーク数以上のホットエントリーをRSSで返します
 - デフォルト値は100です
-
-## 出力例
-
-```xml
-<?xml version="1.0" encoding="UTF-8" ?>
-<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:atom="http://www.w3.org/2005/Atom">
-    <channel>
-        <title>Hatena Hotentry (Threshold: 200)</title>
-        <link>https://example.com/hotentry/all/feed?threshold=200</link>
-        <description>はてなブックマークの人気エントリー（200ブックマーク以上）</description>
-        <language>ja</language>
-        <lastBuildDate>Thu, 07 Mar 2024 15:00:00 GMT</lastBuildDate>
-        <atom:link href="https://example.com/hotentry/all/feed?threshold=200" rel="self" type="application/rss+xml"/>
-        <ttl>10</ttl>
-
-        <item>
-            <title>「新しいAI技術が発表される」</title>
-            <link>https://example.com/ai-news</link>
-            <guid isPermaLink="true">https://example.com/ai-news</guid>
-            <description>AI技術の進化が止まらない。最新の発表によると、新しいニューラルネットワークの手法が...</description>
-            <pubDate>Thu, 07 Mar 2024 14:50:00 GMT</pubDate>
-        </item>
-    </channel>
-</rss>
-```
 
 ## トラブルシューティング
 
@@ -205,6 +212,23 @@ https://hatena-bookmark-app.onrender.com/hotentry/all/feed?threshold=200
 3. **重複した通知**
    - `guid`タグが正しく設定されているか確認
    - IFTTTのAppletの設定を確認
+
+## 開発者向け情報
+
+### コーディング規約
+
+- PEP8に準拠したコードスタイル
+- Googleスタイルのドキュメント文字列
+- ruffによるリンティングとフォーマット
+- mypyによる型チェック
+
+### 貢献方法
+
+1. リポジトリをフォーク
+2. 機能ブランチを作成 (`git checkout -b feature/amazing-feature`)
+3. 変更をコミット (`git commit -m 'Add some amazing feature'`)
+4. ブランチにプッシュ (`git push origin feature/amazing-feature`)
+5. Pull Requestを作成
 
 ## ライセンス
 
