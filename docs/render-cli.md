@@ -102,6 +102,44 @@ render logs <サービス名またはサービスID> --since 1d > logs.txt
 render list deploys <サービス名またはサービスID>
 ```
 
+## 代替ログ確認方法
+
+Render CLIが利用できない場合や、Node.jsがインストールされていない環境では、以下の代替方法でログを確認できます：
+
+### 1. Renderダッシュボードを使用する方法
+
+最も簡単な方法は、Renderのウェブダッシュボードを使用することです：
+
+1. Renderダッシュボード（https://dashboard.render.com/）にログイン
+2. サービス「hatena-bookmark-app」を選択
+3. 「Logs」タブをクリック
+4. リアルタイムログを確認
+
+### 2. SSH接続を使用する方法
+
+RenderはサービスへのアクセスにSSH接続も提供しています：
+
+1. Renderダッシュボードでサービスを選択
+2. 「Settings」タブをクリック
+3. 「SSH Public Key」セクションでSSH公開鍵を追加
+4. サービス情報から取得したSSHアドレスに接続：
+   ```bash
+   ssh srv-cv4jaaaj1k6c738o8bi0@ssh.oregon.render.com
+   ```
+5. 接続後、`logs`コマンドを実行してログを表示
+
+### 3. Render APIを使用する方法
+
+Render APIを使用してサービス情報を取得できますが、現在のAPIバージョンではログの直接取得はサポートされていません：
+
+```bash
+# サービス情報の取得
+curl -H "Authorization: Bearer YOUR_API_TOKEN" https://api.render.com/v1/services/YOUR_SERVICE_ID
+
+# デプロイ一覧の取得
+curl -H "Authorization: Bearer YOUR_API_TOKEN" https://api.render.com/v1/services/YOUR_SERVICE_ID/deploys
+```
+
 ## トラブルシューティング
 
 ### 認証エラー
@@ -116,6 +154,32 @@ render login
 ### API レート制限
 
 API レート制限に達した場合は、しばらく待ってから再試行してください。
+
+### Node.jsがインストールされていない
+
+Node.jsがインストールされていない環境では、以下の手順でインストールできます：
+
+#### macOS
+
+```bash
+# Homebrewを使用する場合
+brew install node
+
+# nvmを使用する場合
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash
+nvm install --lts
+```
+
+#### Linux (Ubuntu/Debian)
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+#### Windows
+
+Node.jsの公式サイト（https://nodejs.org/）からインストーラーをダウンロードしてインストールします。
 
 ### その他の問題
 
