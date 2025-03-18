@@ -1,1 +1,1 @@
-web: gunicorn wsgi:application --timeout 120 --workers 4
+web: gunicorn --pythonpath . wsgi:application --timeout 120 --workers 4
