@@ -98,7 +98,8 @@ http://localhost:5001/hotentry/all/feed?threshold=200
 │   └── fixtures/              # テストデータ
 │       └── popular_entries.xml
 ├── docs/                      # ドキュメントディレクトリ
-│   └── design.md              # 設計ドキュメント
+│   ├── design.md              # 設計ドキュメント
+│   └── render-cli.md          # Render CLIの使用ガイド
 ├── environments/              # 環境設定ディレクトリ
 │   ├── dev/
 │   │   └── .env.example       # 開発環境の環境変数例
@@ -150,7 +151,7 @@ pytest tests/test_api.py
    - **Branch**: main
    - **Runtime**: Python 3
    - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `gunicorn wsgi:application --timeout 120 --workers 4`
+   - **Start Command**: `gunicorn app:app --timeout 120 --workers 4`
 
 2. 「Create Web Service」ボタンをクリックします
 
@@ -187,7 +188,32 @@ pytest tests/test_api.py
 
 ### Renderでのエラーログの確認
 
+#### Webダッシュボードでの確認
+
 エラーが発生した場合は、Renderのダッシュボードで該当のWebサービスを選択し、「Logs」タブでエラーログを確認します。
+
+#### Render CLIを使用したログの確認
+
+Render CLIを使用すると、コマンドラインからログを確認できます。詳細な使用方法は [docs/render-cli.md](docs/render-cli.md) を参照してください。
+
+基本的な使用方法：
+
+```bash
+# Render CLIのインストール
+npm install -g @render/cli
+
+# ログイン
+render login
+
+# リアルタイムログの表示
+render logs hatena-bookmark-app
+
+# 過去1時間のログを表示
+render logs hatena-bookmark-app --since 1h
+
+# エラーでフィルタリング
+render logs hatena-bookmark-app --filter "error"
+```
 
 ### よくあるエラー
 
